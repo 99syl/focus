@@ -964,7 +964,8 @@ write_output_from_build_thread :: (builder: *String_Builder, s: string) {
 }
 
 #if OS == .WINDOWS {
-    // A copy of the standard create_process function from the Process module, which passes CREATE_NO_WINDOW to avoid creating a cmd window
+    // A copy of the standard create_process function from the Process module,
+    // which passes CREATE_NO_WINDOW to avoid creating a cmd window
     create_process :: (process: *Process, args: .. string, working_directory := "", capture_and_return_output := false, arg_quoting := Process_Argument_Quoting.QUOTE_IF_NEEDED, kill_process_if_parent_exits := true) -> success: bool {
         startup_info: STARTUPINFOW;
         startup_info.cb = size_of(type_of(startup_info));
@@ -1031,7 +1032,8 @@ write_output_from_build_thread :: (builder: *String_Builder, s: string) {
         // The first argument to CreateProcessW is null, because that is what causes it to
         // search the PATH environment variable to find the thing to run.
 
-        // Do not use CREATE_NO_WINDOW in dwCreationFlags, because if you do, it will mysteriously make the process not inherit
+        // Do not use CREATE_NO_WINDOW in dwCreationFlags, because if you do,
+        // it will mysteriously make the process not inherit
         // console handles. The documentation did not appear to say anything about this, but then again
         // the documentation is contradictory and confusing. Okay, well, if you dig into Process Creation Flags
         // on some other page, it tells you this is not a good idea. Yeah well. Okay.

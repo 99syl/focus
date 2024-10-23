@@ -174,7 +174,8 @@ execute_save_all_buffers :: (action: Deferred_Action) -> Action_Result {
     result := dialog_get_result(*unsaved_buffers_dialog, action.id);
     if #complete result == {
         case .UNINITTED;
-            if unsaved_buffers_exist() {
+            if unsaved_buffers_exist()
+            {
                 show_dialog(*unsaved_buffers_dialog, action.id, .{});
                 return .WAIT;
             }
@@ -183,7 +184,7 @@ execute_save_all_buffers :: (action: Deferred_Action) -> Action_Result {
         case .OK_TO_ALL; #through;
         case .OK;
             remove_top_action();
-            save_all();
+            save_all_buffers();
             return .NEXT;
 
         case .NO_TO_ALL; return .DONE;

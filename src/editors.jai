@@ -7,7 +7,9 @@ editors_handle_event :: (event: Input.Event) -> handled: bool {
         case .KEYBOARD;
             if event.key_pressed {
                 action, mapping := map_event_to_action(event, Action_Editors);
-                if active_hold_actions && !is_hold_action(action) return true;  // don't execute any non-hold actions while hold actions are active
+
+                // don't execute any non-hold actions while hold actions are active
+                if active_hold_actions && !is_hold_action(action) return true;
 
                 editor, buffer := get_active_editor_and_buffer();
                 if editor {
@@ -79,19 +81,25 @@ active_editor_handle_event :: (editor: *Editor, buffer: *Buffer, event: Input.Ev
     shift_pressed := event.modifier_flags.shift_pressed;
     ctrl_pressed  := event.modifier_flags.ctrl_pressed;
 
-    if editor.search_bar.active {
+    if editor.search_bar.active
+    {
         using editor.search_bar;
         old_search_str := copy_temporary_string(to_string(input.text));
         handled := text_input_handle_event(*input, event);
-        if handled {
+        if handled
+        {
             if old_search_str != to_string(input.text) then search_and_update_results(editor, buffer, jump = true);
             return true;
         }
 
         // Handle editor actions which make sense while the search bar is open
         editor_action := map_event_to_action(event, Action_Editors);
-        if editor_action == {
-            case .select_all_occurrences;           select_all_occurrences(editor, buffer, to_string(input.text)); close_search_bar(editor); return true;
+        if editor_action ==
+        {
+            case .select_all_occurrences;
+                select_all_occurrences(editor, buffer, to_string(input.text));
+                close_search_bar(editor);
+                return true;
         }
 
         // Handle search dialog actions
@@ -109,13 +117,6 @@ active_editor_handle_event :: (editor: *Editor, buffer: *Buffer, event: Input.Ev
             case .move_down;                        search_bar_move_cursor(editor, buffer,  1, wrap = true);                            return true;
             case .move_up_fast;                     search_bar_move_cursor(editor, buffer, -5);                                         return true;
             case .move_down_fast;                   search_bar_move_cursor(editor, buffer,  5);                                         return true;
-
-            case .close_all_editors;                close_search_bar(editor); close_all_editors();                                      return true;
-            case .close_other_editors;              close_search_bar(editor); close_other_editors();                                    return true;
-            case .close_current_editor;             close_search_bar(editor); close_editor(.current);                                   return true;
-            case .close_other_editor;               close_editor(.other);                                                               return true;
-            case .close_left_editor;                if editors.active == editors.left  close_search_bar(editor); close_editor(.left);   return true;
-            case .close_right_editor;               if editors.active == editors.right close_search_bar(editor); close_editor(.right);  return true;
 
             case .choose_language;                  close_search_bar(editor); show_dialog(*language_dialog);                            return true;
         }
@@ -149,7 +150,8 @@ active_editor_handle_event :: (editor: *Editor, buffer: *Buffer, event: Input.Ev
     if new_group || (to_float64_seconds(frame_time) - buffer.last_edit_time) >= EDIT_GROUP_TIMEOUT then new_edit_group(buffer, editor);  // do it before action
 
     // We want to remember where cursors were before we do any edits
-    if buffer.edits.count == 0 {
+    if buffer.edits.count == 0
+    {
         resize(*buffer.cursors, editor.cursors.count);
         for * cursor, i : buffer.cursors { cursor.* = editor.cursors[i]; }
     }
@@ -159,17 +161,12 @@ active_editor_handle_event :: (editor: *Editor, buffer: *Buffer, event: Input.Ev
 
     handled := true;
 
-    if action == {
+    if action ==
+    {
         // General actions (which are not associated with any cursor)
         case .toggle_expand;                    toggle_expand();
         case .search_in_buffer;                 open_search_bar(editor, buffer);
         case .search_in_buffer_dropdown_mode;   open_search_bar(editor, buffer, .dropdown);
-        case .close_all_editors;                close_all_editors();
-        case .close_other_editors;              close_other_editors();
-        case .close_current_editor;             close_editor(.current);
-        case .close_other_editor;               close_editor(.other);
-        case .close_left_editor;                close_editor(.left);
-        case .close_right_editor;               close_editor(.right);
 
         case .close_dialog;                     hide_build_panel();
         case .escape;                           if editor.cursors.count == 1 hide_build_panel();
@@ -177,21 +174,20 @@ active_editor_handle_event :: (editor: *Editor, buffer: *Buffer, event: Input.Ev
                                                 reset_search_results(*editor.search_bar);
                                                 editor.refresh_selection = true;
 
-        case .save;                             save(editor, editors.active);
-        case .save_all;                         save_all();
-        case .save_as;                          defer_action_save_as(editor.buffer_id);
+        case .save_current_file;                save_buffer_pointed_by_editor(editor, editors.active);
+        case .save_current_file_as;             defer_action_save_as(editor.buffer_id);
         case .move_current_file;                defer_action_move   (editor.buffer_id);
         case .delete_current_file;              defer_action_delete (editor.buffer_id);
 
-        case .switch_to_left_editor;            switch_to_editor(.left);
-        case .switch_to_right_editor;           switch_to_editor(.right);
-        case .switch_to_other_editor;           switch_to_editor(.other);
-        case .duplicate_editor;                 switch_to_editor(.other, duplicate_current = true);
-        case .duplicate_editor_to_the_left;     switch_to_editor(.left, duplicate_current = true);
-        case .duplicate_editor_to_the_right;    switch_to_editor(.right, duplicate_current = true);
+        case .switch_to_other_editor;
+            if editors.layout == .Single        switch_to_editor(.right, duplicate_current = true);
+            else                                switch_to_editor(.other);
+        case .swap_editors;                     swap_editors();
 
-        case .move_editor_to_the_left;          if editors.active == editors.right then swap_panes();
-        case .move_editor_to_the_right;         if editors.active == editors.left  then swap_panes();
+        case .close_left_editor;                close_editor(.left);
+        case .close_right_editor;               close_editor(.right);
+        case .close_current_editor;             close_editor(.current);
+        case .close_other_editor;               close_editor(.other);
 
         case .scroll_viewport_up;               smooth_scroll(editor, direction = .up);                 activate_hold_action(action, event);
         case .scroll_viewport_up_fast;          smooth_scroll(editor, direction = .up, fast = true);    activate_hold_action(action, event);
@@ -499,7 +495,8 @@ editors_open_project_config :: (placement: Editor_Placement) {
     }
 }
 
-editors_show_default_config :: (placement: Editor_Placement) {
+editors_show_default_config :: (placement: Editor_Placement)
+{
     if global_config_buffer_id < 0 {
         global_config_buffer_id = find_or_create_an_empty_buffer();
         buffer := *open_buffers[global_config_buffer_id];
@@ -516,7 +513,8 @@ editors_show_default_config :: (placement: Editor_Placement) {
     editors_open_buffer(global_config_buffer_id, placement);
 }
 
-editors_show_troubleshooting_info :: (placement: Editor_Placement) {
+editors_show_troubleshooting_info :: (placement: Editor_Placement)
+{
     if global_troubleshooting_buffer_id < 0 {
         global_troubleshooting_buffer_id = find_or_create_an_empty_buffer();
         buffer := *open_buffers[global_troubleshooting_buffer_id];
@@ -536,9 +534,9 @@ editors_show_troubleshooting_info :: (placement: Editor_Placement) {
     editors_open_buffer(global_troubleshooting_buffer_id, placement);
 }
 
-editors_create_new_file :: (placement: Editor_Placement = .in_place) {
+editors_create_new_file :: (placement: Editor_Placement = .in_place)
+{
     buffer_id := find_or_create_an_empty_buffer();
-
     editors_open_buffer(buffer_id, placement);
 }
 
@@ -835,29 +833,30 @@ close_other_editor :: () {
 
 close_editor_by_id :: (editor_id: s64, skip_animation := false) {
     if editors.layout == {
-        case .None;
-            do_things_on_editor_close(editor_id);
-
         case .Single;
             if editor_id == editors.active {
                 editors.layout = .None;
                 update_window_title();
             }
-            do_things_on_editor_close(editor_id);
 
         case .Double;
-            if editor_id == editors.left || editor_id == editors.right {
+            if editor_id == editors.left || editor_id == editors.right
+            {
                 editor_closing_id = editor_id;
-                if !config.settings.disable_file_open_close_animations && !skip_animation {
-                    // Start the animation (the layout will change when the animation is finished)
-                    editors_start_moving_splitter(ifx editor_id == editors.left then 0.0 else 1.0);
-                    make_editor_active(ifx editor_id == editors.left then editors.right else editors.left);
-                } else {
+
+                // @TODO: I do not want any animation. Remove any usage of disable_file_open_close_animations asap.
+                #if false
+                {
+                    if !config.settings.disable_file_open_close_animations && !skip_animation {
+                        // Start the animation (the layout will change when the animation is finished)
+                        editors_start_moving_splitter(ifx editor_id == editors.left then 0.0 else 1.0);
+                        make_editor_active(ifx editor_id == editors.left then editors.right else editors.left);
+                    } //else
+                }
+                {
                     make_editor_active(ifx editor_id == editors.left then editors.right else editors.left);
                     finish_closing_editor();
                 }
-            } else {
-                do_things_on_editor_close(editor_id);
             }
     }
 }
@@ -880,26 +879,7 @@ finish_closing_editor :: () {
         editors.left  = editors.active;  // editor history needs it for comparison
         editors.right = editors.active;
     }
-    do_things_on_editor_close(editor_closing_id);
     editor_closing_id = -1;
-}
-
-do_things_on_editor_close :: (editor_id: s64) {
-    if editor_id < 0 return;
-    editor := *open_editors[editor_id];
-    buffer := *open_buffers[editor.buffer_id];
-
-    buffer_is_still_visible := false;
-    if #complete editors.layout == {
-        case .None;
-        case .Single; buffer_is_still_visible = open_editors[editors.active].buffer_id == editor.buffer_id;
-        case .Double; buffer_is_still_visible = open_editors[editors.left].buffer_id == editor.buffer_id || open_editors[editors.right].buffer_id == editor.buffer_id;
-    }
-    if !buffer_is_still_visible {
-        array_ordered_remove_by_value(*most_recent_buffers, editor.buffer_id);
-        if !buffer.modified then buffer.num_times_opened = 0;  // deprioritise it in the full file list
-        if !buffer.has_file { buffer.deleted = true; buffer.modified = false; }  // get rid of newly created buffers we're closing
-    }
 }
 
 close_other_editors :: () {
@@ -1237,6 +1217,8 @@ get_lang_from_path :: (full_path: string) -> Buffer.Lang {
 
     // Get lang from the builtin mapping
     lowercase_extension := to_lower_copy_new(extension,, temp);
+    // @TODO: Make this configurable:
+    //          My projects are using .h extension even though they contain C++ code.
     if lowercase_extension == {
         case "jai";             lang = .Jai;
         case "cs";              lang = .CSharp;
@@ -1506,11 +1488,6 @@ new_edit_group :: (buffer: *Buffer, editor: *Editor) {
     // Remember cursor state
     resize(*buffer.cursors, editor.cursors.count);
     for * cursor, i : buffer.cursors { cursor.* = editor.cursors[i]; }
-}
-
-save_all :: () {
-    unsaved_buffer_ids := get_unsaved_buffer_ids();
-    for < unsaved_buffer_ids  save(it);
 }
 
 #scope_file
@@ -1914,22 +1891,23 @@ select_all_occurrences :: (using editor: *Editor, buffer: Buffer, search_str := 
     return editor.search_whole_words;
 }
 
-save :: (editor: Editor, editor_id: s64) {
+save_buffer_pointed_by_editor :: (editor: Editor, editor_id: s64)
+{
     buffer_id := editor.buffer_id;
 
     // When hitting save while in the color preview panel, save the target config file instead
     if is_color_preview_panel(editor_id) then buffer_id = color_preview_get_target_buffer_id();
 
-    save(buffer_id);
-}
-
-save :: (buffer_id: s64) {
     buffer := *open_buffers[buffer_id];
+
     if buffer.readonly || buffer.internal return;
 
-    if buffer.has_file {
+    if buffer.has_file
+    {
         save_buffer(buffer, buffer_id);
-    } else {
+    }
+    else
+    {
         defer_action_save_as(buffer_id);
     }
 }
@@ -2002,7 +1980,7 @@ duplicate_active_editor :: () -> s64 {
     return duplicated_editor_id;
 }
 
-swap_panes :: () {
+swap_editors :: () {
     if editors.layout != .Double return;
     tmp := editors.left;
     editors.left  = editors.right;
@@ -2020,7 +1998,8 @@ toggle_expand :: () {
     }
 }
 
-toggle_editor_expand :: (expanded: bool) {
+toggle_editor_expand :: (expanded: bool)
+{
     if editors.layout != .Double return;
 
     editors.expanded = expanded;
@@ -2031,9 +2010,10 @@ toggle_editor_expand :: (expanded: bool) {
     }
 }
 
-smooth_scroll :: (editor: Editor, direction: Smooth_Scroll_Direction, fast := false) {
+smooth_scroll :: (editor: Editor, direction: Smooth_Scroll_Direction, fast := false)
+{
     // Only set this if there's a new set of inputs. Since keystrokes will repeat if held down for long,
-    // the start_*/started_at values would be reset constantly in the middle of scrolling, causing stutter.
+    // the start_started_at values would be reset constantly in the middle of scrolling, causing stutter.
     if direction != editor_smooth_scroll.direction || fast != editor_smooth_scroll.fast {
         editor_smooth_scroll.direction  = direction;
         editor_smooth_scroll.started_at = frame_time;
@@ -2043,35 +2023,43 @@ smooth_scroll :: (editor: Editor, direction: Smooth_Scroll_Direction, fast := fa
     }
 }
 
-cursors_match :: (c1: Array(Cursor), c2: [] Cursor) -> bool {
+cursors_match :: (c1: Array(Cursor), c2: [] Cursor) -> bool
+{
     if c1.count != c2.count return false;
 
-    for 0 .. c1.count-1 {
+    for 0 .. c1.count - 1
+    {
         if c1[it].pos != c2[it].pos return false;  // we don't compare sel on purpose, to avoid jumping between selections too much
     }
 
     return true;
 }
 
-undo :: (editor: *Editor, buffer: *Buffer) {
+undo :: (editor: *Editor, buffer: *Buffer)
+{
     new_edit_group(buffer, editor);
     if buffer.undos.count == 0 return;
 
     edit_group := peek(buffer.undos);
 
     // Maybe put cursors in the position right before the undo edits, unless they are already there
-    if !cursors_match(editor.cursors, edit_group.cursors_after) {
+    if !cursors_match(editor.cursors, edit_group.cursors_after)
+    {
         restore_cursor_state(editor, edit_group.cursors_after);
         return;  // let people hit undo again to see the changes for more visual feedback
     }
 
     // Revert edits in the backwards order
-    for < e : edit_group.edits {
-        if #complete e.type == {
+    for < e : edit_group.edits
+    {
+        if #complete e.type ==
+        {
             case .delete;      using e.delete;       insert_string_raw(buffer, offset_range.start, old_bytes);
             case .replace;     using e.replace;      replace_range_raw(buffer, offset_range.start, offset_range.start + xx new_bytes.count, old_bytes);
-            case .insert;      using e.insert;       delete_range_raw (buffer, offset, offset + cast(s32) new_bytes.count);
-            case .insert_char; using e.insert_char;  delete_range_raw (buffer, offset, offset + cast(s32)char.count);
+            case .insert;      using e.insert;       delete_range_raw(buffer, offset,
+                                                                      offset + cast(s32) new_bytes.count);
+            case .insert_char; using e.insert_char;  delete_range_raw(buffer, offset,
+                                                                      offset + cast(s32)char.count);
         }
     }
 
@@ -2082,22 +2070,27 @@ undo :: (editor: *Editor, buffer: *Buffer) {
     editor.cursor_moved = .large_edit;
 }
 
-redo :: (editor: *Editor, buffer: *Buffer) {
+redo :: (editor: *Editor, buffer: *Buffer)
+{
     if buffer.redos.count == 0 return;
 
     edit_group := peek(buffer.redos);
 
     // Maybe put cursors in the position right before the redo edits, unless they are already there
-    if !cursors_match(editor.cursors, edit_group.cursors_before) {
+    if !cursors_match(editor.cursors, edit_group.cursors_before)
+    {
         restore_cursor_state(editor, edit_group.cursors_before);
         return;  // let people hit undo again to see the changes for more visual feedback
     }
 
     // Replay edits in the normal order
-    for e : edit_group.edits {
-        if #complete e.type == {
+    for e : edit_group.edits
+    {
+        if #complete e.type ==
+        {
             case .delete;      using e.delete;      delete_range_raw (buffer, offset_range.start, offset_range.end);
-            case .replace;     using e.replace;     replace_range_raw(buffer, offset_range.start, offset_range.end, new_bytes);
+            case .replace;     using e.replace;     replace_range_raw(buffer, offset_range.start, offset_range.end,
+                                                                      new_bytes);
             case .insert;      using e.insert;      insert_string_raw(buffer, offset, new_bytes);
             case .insert_char; using e.insert_char; insert_string_raw(buffer, offset, to_string(*char));
         }
@@ -3827,7 +3820,8 @@ Text_Highlight :: struct {
     type: enum u8 { text; bracket; } = .text;
 }
 
-Paste_Animation :: struct {
+Paste_Animation :: struct
+{
     editor_id: s64;
     range: Offset_Range;
     coords_range: Coords_Range;
@@ -3836,7 +3830,8 @@ Paste_Animation :: struct {
     SPEED :: 0.3;
 }
 
-Editor_State :: struct {
+Editor_State :: struct
+{
     layout: Layout = .None;
 
     active: s64 = -1;
@@ -3845,7 +3840,8 @@ Editor_State :: struct {
 
     expanded := false;  // whether the active editor should be larger
 
-    Layout :: enum u8 {
+    Layout :: enum u8
+    {
         None    :: 0;
         Single  :: 1;
         Double  :: 2;
@@ -4123,11 +4119,14 @@ move_to_editor_history_frame :: (frame: Editor_History_Frame, old_frame: Editor_
 #scope_file
 
 cursor_blink_start: Apollo_Time;
+
+// @TODO: This should be configurable.
 cursors_blinking := false;
 
 global_config_buffer_id := -1;
 global_troubleshooting_buffer_id := -1;
 
+// @TODO: This should be configurable.
 CURSOR_BLINK_SPEED_MS   :: 500;
 
 #import "Clipboard";

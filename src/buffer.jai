@@ -711,18 +711,25 @@ save_buffer_to_file :: (buffer: *Buffer, buffer_id: s64, file_path: string) {
     start_watching_file_if_not_already(file_path);
 }
 
-save_buffer :: (using buffer: *Buffer, buffer_id: s64) {
+save_buffer :: (using buffer: *Buffer, buffer_id: s64)
+{
     if readonly return;
 
     assert(has_file, "Trying to save a buffer without an associated file. This is a bug.");
 
-    if config.settings.strip_trailing_whitespace_on_save != .disabled {
-        strip_trailing_whitespace(buffer, buffer_id, except_lines_with_cursor = config.settings.strip_trailing_whitespace_on_save == .except_lines_with_cursor);
+    if config.settings.strip_trailing_whitespace_on_save != .disabled
+    {
+        strip_trailing_whitespace(buffer, buffer_id,
+            except_lines_with_cursor = 
+                config.settings.strip_trailing_whitespace_on_save == .except_lines_with_cursor);
     }
-    if config.settings.insert_final_newline_on_save      then insert_final_newline(buffer);  // important to do it after stripping
+
+    // important to do it after stripping
+    if config.settings.insert_final_newline_on_save then insert_final_newline(buffer);
 
     success := write_entire_file(file.full_path, to_string(bytes));
-    if success {
+    if success
+    {
         modified = false;
         modified_on_disk = false;
         deleted = false;
@@ -731,18 +738,38 @@ save_buffer :: (using buffer: *Buffer, buffer_id: s64) {
 
         error_when_saving = false;
         crlf = false;
-    } else {
+    }
+    else
+    {
         error_when_saving = true;
     }
     remember_last_mod_info(buffer);
-    if editors.active >= 0 && editors.active < open_editors.count then update_window_title(open_editors[editors.active].buffer_id);
+    if editors.active >= 0 && editors.active < open_editors.count then
+        update_window_title(open_editors[editors.active].buffer_id);
 
-    // The config will attempt to refresh again on a file watcher message, but it should exit early because it will be unchanged.
+    // The config will attempt to refresh again on a file watcher message,
+    // but it should exit early because it will be unchanged.
     // We're doing it here because this way we always refresh right away, without waiting for a message to wake us up
     if is_our_config_file(buffer.file.full_path) refresh_config(buffer.file.full_path);
     if is_current_theme(buffer.file.full_path) refresh_current_theme();
 
     redraw_requested = true;
+}
+
+save_all_buffers :: ()
+{
+    unsaved_buffer_ids := get_unsaved_buffer_ids();
+    for < unsaved_buffer_ids
+    {
+        buffer := *open_buffers[it];
+
+        if buffer.readonly || buffer.internal return;
+
+        if buffer.has_file
+        {
+            save_buffer(buffer, it);
+        }  
+    }
 }
 
 reroute_active_editor :: (old_buffer_id: s64, new_buffer_id: s64) {
@@ -1588,15 +1615,18 @@ Buffer_Region :: struct {
     }
 }
 
-Coords_Range :: struct {
+Coords_Range :: struct
+{
     start, end: Coords;
 }
 
-Indentation_Token :: struct {
+Indentation_Token :: struct
+{
     start: s32;
     len:   s32;
 
-    type: enum u16 {
+    type: enum u16
+    {
         // non-indentation
         unimportant;
         maybe_multiline;
@@ -1607,7 +1637,8 @@ Indentation_Token :: struct {
         close;
     };
 
-    kind: enum u16 {
+    kind: enum u16
+    {
         // only makes sense for indentation types
         paren;
         bracket;

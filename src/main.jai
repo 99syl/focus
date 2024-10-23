@@ -358,8 +358,10 @@ main :: () {
     }
 }
 
-handle_common_editor_action :: (action: Action_Editors, placement: Editor_Placement = .in_place) -> handled: bool {
-    if action == {
+handle_common_editor_action :: (action: Action_Editors, placement: Editor_Placement = .in_place) -> handled: bool
+{
+    if action ==
+    {
         case .quit;                                             defer_action_quit();                                return true;
 
         case .open_another_editor_instance;                     open_another_editor_instance();                     return true;
@@ -382,18 +384,19 @@ handle_common_editor_action :: (action: Action_Editors, placement: Editor_Placem
         case .show_troubleshooting_info;                        editors_show_troubleshooting_info(placement);       return true;
 
         case .go_to_line;                                       show_go_to_line_dialog();                           return true;
-        case .create_new_file;                                  editors_create_new_file(placement);                 return true;
-        case .create_new_file_on_the_side;                      editors_create_new_file(.on_the_side);              return true;
 
         case .go_to_next_build_error;                           go_to_next_build_error(.in_place);                  return true;
         case .go_to_next_build_error_on_the_side;               go_to_next_build_error(.on_the_side);               return true;
         case .go_to_previous_build_error;                       go_to_previous_build_error(.in_place);              return true;
         case .go_to_previous_build_error_on_the_side;           go_to_previous_build_error(.on_the_side);           return true;
 
+//        case .close_all_files;                                  close_all_files();                                  return true;
+        case .create_new_file;                                  editors_create_new_file(placement);                 return true;
         case .open_file_by_name;                                show_open_file_dialog(.search);                     return true;
         case .navigate_to_file;                                 show_open_file_dialog(.navigate);                   return true;
         case .navigate_to_file_from_root;                       show_open_file_dialog(.navigate, from_root = true); return true;
         case .switch_between_open_files;                        show_open_file_dialog(.open_editors);               return true;
+        case .save_all_files;                                   save_all_buffers();                                 return true;
 
         case .show_commands;                                    show_dialog(*commands_dialog);                      return true;
         case .toggle_fullscreen;                                editor_toggle_fullscreen();                         return true;
@@ -411,24 +414,33 @@ handle_common_editor_action :: (action: Action_Editors, placement: Editor_Placem
 
         // TODO: search_in_buffer
         case .search_in_project;
-            if active_global_widget == .editors then finder_open_from_editor(); else finder_open();                 return true;
+            if   active_global_widget == .editors then finder_open_from_editor();
+            else finder_open();                        return true;
     }
     return false;
 }
 
-maybe_execute_a_build_command :: (action: Action_Build) -> handled: bool {
+maybe_execute_a_build_command :: (action: Action_Build) -> handled: bool
+{
     if action == INVALID_KEYMAP_ACTION return false;
 
     command_id := cast(s64) action;
-    assert(command_id <= config.build.commands.count, "A keymap was bound to a nonexistent build command %. Number of build commands: %. This is a bug", command_id, config.build.commands.count);
+    assert(command_id <= config.build.commands.count,
+           "A keymap was bound to a nonexistent build command %. Number of build commands: %. This is a bug",
+           command_id, config.build.commands.count);
 
-    if config.settings.save_all_file_backed_buffers_on_build {
-        for * buffer, buffer_id : open_buffers {
-            if buffer.modified && buffer.has_file {
+    if config.settings.save_all_file_backed_buffers_on_build
+    {
+        for * buffer, buffer_id : open_buffers
+        {
+            if buffer.modified && buffer.has_file
+            {
                 save_buffer(buffer, buffer_id);
             }
         }
-    } else if config.settings.save_current_buffer_on_build {
+    }
+    else if config.settings.save_current_buffer_on_build
+    {
         editor, buffer := get_active_editor_and_buffer();
         if editor && buffer.has_file save_buffer(buffer, editor.buffer_id);
     }
@@ -438,7 +450,8 @@ maybe_execute_a_build_command :: (action: Action_Build) -> handled: bool {
     return true;
 }
 
-init_fonts_and_dependent_things :: () {
+init_fonts_and_dependent_things :: ()
+{
     push_allocator(focus_allocator);  // we sometimes call this from within a temp allocator
 
     font_main_size = clamp(font_main_size, MIN_FONT_SIZE, MAX_FONT_SIZE);
@@ -487,6 +500,8 @@ init_fonts_and_dependent_things :: () {
     font_icons_very_small = Simp.get_font_at_size(FONT_ICONS.name, FONT_ICONS.data, cast(int) (font_icons_very_small_size * dpi_scale));
     assert(font_icons_very_small != null, "Couldn't init very small icon font\n");
 
+    // @TODO: Add support Japanese Kanas and Kanjis.
+
     // WORKAROUND:
     // Make a dummy call with most common chars for each font so that
     // we have all the font atlases loaded in the GPU memory once
@@ -524,7 +539,8 @@ init_fonts_and_dependent_things :: () {
     rounding_radius_small = floor(char_size / 3);
 }
 
-update_mouse_state :: () {
+update_mouse_state :: ()
+{
     x, y := get_mouse_pointer_position(window, false);
     mouse.pointer.x = xx x;
     mouse.pointer.y = xx (window_height - y);
@@ -722,8 +738,10 @@ current_time_consensus_backwards_compatible :: () -> Apollo_Time {
     }
 }
 
-fill_in_missing_default_themes :: () {
-    for theme : BUILTIN_THEMES {
+fill_in_missing_default_themes :: ()
+{
+    for theme : BUILTIN_THEMES
+    {
         theme_file := tprint("%/%.focus-theme", themes_dir, theme.name);
         if !file_exists(theme_file) then write_entire_file(theme_file, theme.contents);
     }
@@ -766,7 +784,8 @@ screen: Rect;  // contains the current working area rect for convenience
 
 mouse: Mouse_State;
 
-Mouse_State :: struct {
+Mouse_State :: struct
+{
     pointer: Vector2;
     previous_position: Vector2;
     moved_this_frame: bool;
@@ -781,14 +800,16 @@ Mouse_State :: struct {
     x2: Mouse_Button_State;
 
     last_wheel_y_time64: float64;
-    wheel_y_mode : enum {
+    wheel_y_mode : enum
+    {
         none;
         scrolling;
         sizing_font;
     }
 }
 
-Mouse_Button_State :: struct {
+Mouse_Button_State :: struct
+{
     is_down:             bool;
     is_dragging:         bool;
     just_pressed:        bool;
@@ -833,7 +854,8 @@ DEFAULT_FONT_ICONS_SIZE            :: 16;
 DEFAULT_FONT_ICONS_SMALL_SIZE      :: 12;
 DEFAULT_FONT_ICONS_VERY_SMALL_SIZE :: 8;
 
-loaded_fonts: struct {
+loaded_fonts: struct
+{
     main:    Loaded_Font = FONT_MAIN;
     ui:      Loaded_Font = FONT_UI;
     ui_bold: Loaded_Font = FONT_UI_BOLD;
@@ -880,7 +902,8 @@ project_files: [..] string;  // individual files added to project
 
 active_global_widget: Active_Global_Widget = .editors;
 
-Active_Global_Widget :: enum {
+Active_Global_Widget :: enum
+{
     editors;
     finder;
     open_file_dialog;
@@ -895,21 +918,25 @@ Active_Global_Widget :: enum {
     language_dialog;
 }
 
-Project_Dir :: struct {
+Project_Dir :: struct
+{
     path: string;          // e.g. "C:/projects/focus"
     path_prefix_len: s64;  // in this case the length of "C:/projects/"
     name: string;          // a view into path
 }
 
-Builtin_Theme :: struct {
+Builtin_Theme :: struct
+{
     name: string;
     contents: string;
 }
 
-BUILTIN_THEMES :: #run -> [] Builtin_Theme {
+BUILTIN_THEMES :: #run -> [] Builtin_Theme
+{
     themes: [..] Builtin_Theme;
 
-    visitor :: (info: *File_Visit_Info, themes: *[..] Builtin_Theme) {
+    visitor :: (info: *File_Visit_Info, themes: *[..] Builtin_Theme)
+    {
         full_path := info.full_name;
         path, basename, extension, name := path_decomp(full_path);
         if extension != "focus-theme" return;
@@ -917,6 +944,8 @@ BUILTIN_THEMES :: #run -> [] Builtin_Theme {
         if !success return;
         array_add(themes, Builtin_Theme.{ name = basename, contents = file_contents });
     }
+
+    // @TODO: Maybe we want a recursive search ?
     visit_files("config/themes", recursive = false, *themes, visitor, visit_files = true, visit_directories = false);
 
     return themes;
@@ -1091,12 +1120,14 @@ DEBUG_FILE_REFRESH :: false;  // TODO: remove when done debugging
 DEBUG_MEMORY_LEAKS :: false;
 
 
-#if OS == .LINUX {
+#if OS == .LINUX
+{
     /*
      * EXTREME JANK - nuke once the Jai standard library no longer depends on libc
      */
     focus_memcpy :: (dst: *void, src: *void, size: s64) -> *void #foreign libc "memmove";
     libc :: #system_library "libc";
-} else {
+} else
+{
     focus_memcpy :: memcpy;
 }

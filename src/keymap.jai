@@ -1,22 +1,26 @@
 INVALID_KEYMAP_ACTION :: 0xFFFF;
 
-map_event_to_action :: (event: Input.Event, $Action: Type) -> Action, Key_Mapping {
+map_event_to_action :: (event: Input.Event, $Action: Type) -> Action, Key_Mapping
+{
     invalid_action := cast(Action) INVALID_KEYMAP_ACTION;
     if event.type != .KEYBOARD || !event.key_pressed return invalid_action, .{};
 
     using key_sequence_input;
 
     key_mappings := get_keymap_for_action_type(Action);
-    if potential_multipart_matches {
+    if potential_multipart_matches
+    {
         filtered_mappings: [..] Key_Mapping;
         filtered_mappings.allocator = temp;
-        for potential_multipart_matches {
+        for potential_multipart_matches
+        {
             if it.action_type == Action then array_add(*filtered_mappings, it.mapping);
         }
         key_mappings = filtered_mappings;
     }
 
-    for key_mappings {
+    for key_mappings
+    {
         if active_sequence_length >= it.key_sequence.count continue;
 
         combo := it.key_sequence[active_sequence_length];
@@ -33,9 +37,11 @@ map_event_to_action :: (event: Input.Event, $Action: Type) -> Action, Key_Mappin
         }
     }
 
-    #if Action == Action_Open_File_Dialog {
+    #if Action == Action_Open_File_Dialog
+    {
         // Hard-coded case: When the Open File dialog is active, "/" or "\" opens a directory.
-        if event.key_code == {
+        if event.key_code ==
+        {
             case #char "/";  #through;
             case #char "\\"; return .open_directory, .{};
         }
@@ -46,7 +52,8 @@ map_event_to_action :: (event: Input.Event, $Action: Type) -> Action, Key_Mappin
 
 // This function just remembers that a hold action is now active, so that we can deactivate it on key release.
 // The action itself is done elsewhere.
-activate_hold_action :: (action: $Action_Type, event: Input.Event) {
+activate_hold_action :: (action: $Action_Type, event: Input.Event)
+{
     _, matched_mapping := map_event_to_action(event, Action_Type);  // we map it here again to avoid passing it in through multiple functions
 
     hold_action := Hold_Action.{ action_type = Action_Type, matched_mapping = matched_mapping };
@@ -55,13 +62,15 @@ activate_hold_action :: (action: $Action_Type, event: Input.Event) {
     // I tried making it public but it didn't help.
     // array_add_if_unique(*active_hold_actions, hold_action);
 
-    for active_hold_actions {
+    for active_hold_actions
+    {
         if it == hold_action return;  // already there
     }
     array_add(*active_hold_actions, hold_action);
 }
 
-is_hold_action :: inline (action: Action_Editors) -> bool {
+is_hold_action :: inline (action: Action_Editors) -> bool
+{
     return action == .scroll_viewport_up ||
            action == .scroll_viewport_up_fast ||
            action == .scroll_viewport_down ||
@@ -70,7 +79,8 @@ is_hold_action :: inline (action: Action_Editors) -> bool {
            action == .scroll_viewport_right;
 }
 
-map_key_release_to_hold_actions :: (event: Input.Event, $Action: Type) -> [] Action /* temporary storage */ {
+map_key_release_to_hold_actions :: (event: Input.Event, $Action: Type) -> [] Action /* temporary storage */
+{
     if event.type != .KEYBOARD || event.key_pressed return .[];
 
     actions: [..] Action;
@@ -95,14 +105,17 @@ map_key_release_to_hold_actions :: (event: Input.Event, $Action: Type) -> [] Act
     return actions;
 }
 
-get_first_matching_key_sequence_from_action :: (action: $T) -> [][] string /* temp */ {
+get_first_matching_key_sequence_from_action :: (action: $T) -> [][] string /* temp */
+{
     keymap := get_keymap_for_action_type(type_of(action));
     key_sequence: [] Key_Combo = ---;
     found := false;
     action_code := cast(u32) action;
 
-    for mapping: keymap {
-        if action_code == mapping.action {
+    for mapping: keymap
+    {
+        if action_code == mapping.action
+        {
             key_sequence = mapping.key_sequence;
             found = true;
             break;
@@ -116,18 +129,21 @@ get_first_matching_key_sequence_from_action :: (action: $T) -> [][] string /* te
     return key_sequence_parts;
 }
 
-key_combo_strings :: (combo: Key_Combo) -> [] string /* temp */ {
+key_combo_strings :: (combo: Key_Combo) -> [] string /* temp */
+{
     keys: [..] string;
     keys.allocator = temp;
     array_reserve(*keys, 5);  // modifiers + key
 
-    #if OS == .LINUX {
+    #if OS == .LINUX
+    {
         if combo.mods.cmd_meta_pressed then array_add(*keys, "Meta");
     }
     if combo.mods.ctrl_pressed  then array_add(*keys, "Ctrl");
     if combo.mods.alt_pressed   then array_add(*keys, "Alt");
     if combo.mods.shift_pressed then array_add(*keys, "Shift");
-    #if OS == .MACOS {
+    #if OS == .MACOS
+    {
         if combo.mods.cmd_meta_pressed then array_add(*keys, "Cmd");
     }
 
@@ -136,8 +152,10 @@ key_combo_strings :: (combo: Key_Combo) -> [] string /* temp */ {
     return keys;
 }
 
-key_sequence_matches :: (s1: [] Key_Combo, s2: [] Key_Combo) -> bool {
-    for 0 .. min(s1.count, s2.count)-1 {
+key_sequence_matches :: (s1: [] Key_Combo, s2: [] Key_Combo) -> bool
+{
+    for 0 .. min(s1.count, s2.count) - 1
+    {
         c1, c2 := s1[it], s2[it];
         ignore_mask := c1.ignore.packed | c2.ignore.packed;
         if (c1.key_code != c2.key_code) || (c1.mods.packed | ignore_mask != c2.mods.packed | ignore_mask) return false;
@@ -263,44 +281,55 @@ Key_Combo :: struct {
 
 Action_Build :: #type,distinct u32;  // holds the index of the build command in the list
 
+// @TODO: Rename this to ACTIONS_GLOBAL
 ACTIONS_COMMON :: string.[
-    "do_nothing",   // to disable key combinations (DEPRECATED). TODO: auto-remove when we have a config migration system
+    // @TODO: I don't understand why this is needed though I never tried without.
+    "do_nothing",   // to disable key combinations (DEPRECATED).
+                    // TODO: auto-remove when we have a config migration system
 
-    "quit",
-
-    "open_another_editor_instance",
-
-    "open_project",
-    "switch_to_project",
-    "close_project",
-
+    // Global Controls
     "choose_theme",
     "edit_current_theme",
-
-    "choose_language",
-
-    "open_projects_directory",
+    "open_another_editor_instance",
     "open_global_config",
-    "open_project_config",
+    "open_projects_directory",
+    "quit",
     "show_default_config",
-
     "toggle_fullscreen",
+
+    // File Controls
+    "close_file",
+    "close_all_files",
+    "create_new_file",
+    "save_all_files",
+
+    // Project Controls
+    "close_project",
+    "open_project",
+    "open_project_config",
+    "switch_to_project",
+
+
+    "choose_language",          // @TODO: Should be in ACTIONS_EDITOR.
+
+    // Build Controls
     "toggle_build_panel",
     "build_kill_running_command",
     "build_clear_output",
+
+    // Linux Controls
     "show_troubleshooting_info",
 
+    // Shortcuts
     "show_commands",
     "search_in_buffer",
     "search_in_buffer_dropdown_mode",
     "search_in_project",
     "go_to_line",
-
     "open_file_by_name",
     "navigate_to_file",
     "navigate_to_file_from_root",
     "switch_between_open_files",
-
     "copy",
     "cut",
     "paste",
@@ -339,22 +368,15 @@ ACTIONS_COMMON :: string.[
     "decrease_font_size",
     "reset_font_size_to_default",
     "strip_trailing_whitespace",
-    "close_all_editors",
-    "close_current_editor",
-    "close_other_editors",
-    "close_other_editor",
-    "close_left_editor",
-    "close_right_editor",
     "close_dialog",
     "escape",
-
     "go_to_next_build_error",
     "go_to_next_build_error_on_the_side",
     "go_to_previous_build_error",
     "go_to_previous_build_error_on_the_side",
 ];
 
-ACTIONS_EDITORS :: #run arrays_concat(ACTIONS_COMMON, string.[
+ACTIONS_EDITORS :: #run arrays_concat(ACTIONS_COMMON, string.[    
     "select_word_or_create_another_cursor",
     "revert_select_word_or_create_another_cursor",
     "move_selection_to_next_word",
@@ -380,11 +402,6 @@ ACTIONS_EDITORS :: #run arrays_concat(ACTIONS_COMMON, string.[
     "unindent",
     "indent",
     "autoindent_region",
-    "save",
-    "save_as",
-    "save_all",
-    "move_current_file",
-    "delete_current_file",
     "toggle_comment",
     "toggle_block_comment",
     "select_line",
@@ -402,16 +419,15 @@ ACTIONS_EDITORS :: #run arrays_concat(ACTIONS_COMMON, string.[
     "break_line",
     "new_line_below_without_breaking",
     "new_line_above_without_breaking",
-    "switch_to_left_editor",
-    "switch_to_right_editor",
+
     "switch_to_other_editor",
-    "duplicate_editor",
-    "duplicate_editor_to_the_left",
-    "duplicate_editor_to_the_right",
-    "move_editor_to_the_left",
-    "move_editor_to_the_right",
-    "create_new_file",
-    "create_new_file_on_the_side",
+    "swap_editors",
+
+    "close_left_editor",
+    "close_right_editor",
+    "close_current_editor",
+    "close_other_editor",
+
     "move_to_previous_editor_history",
     "move_to_next_editor_history",
     "move_to_previous_buffer",
@@ -419,9 +435,22 @@ ACTIONS_EDITORS :: #run arrays_concat(ACTIONS_COMMON, string.[
     "toggle_line_wrap",
     "toggle_line_numbers",
     "copy_current_line_info",
+
+    // Editor|File
+    "close_current_file",
+    "close_other_file",
+    "close_left_file",
+    "close_other_files",
+    "close_right_file",
+    "create_new_file_on_the_side",
+    "delete_current_file",
+    "move_current_file",
+    "save_current_file",
+    "save_current_file_as",
 ]);
 
-ACTIONS_OPEN_FILE_DIALOG :: #run arrays_concat(ACTIONS_COMMON, string.[
+ACTIONS_OPEN_FILE_DIALOG :: #run arrays_concat(ACTIONS_COMMON, string
+.[
     "open_entry_in_place",
     "open_entry_on_the_side",
     "open_entry_on_the_left",
@@ -431,7 +460,8 @@ ACTIONS_OPEN_FILE_DIALOG :: #run arrays_concat(ACTIONS_COMMON, string.[
     "pop_directory",
 ]);
 
-ACTIONS_SEARCH_DIALOG :: #run arrays_concat(ACTIONS_COMMON, string.[
+ACTIONS_SEARCH_DIALOG :: #run arrays_concat(ACTIONS_COMMON, string
+.[
     "open_entry_in_place",
     "open_entry_on_the_side",
     "open_entry_on_the_left",
@@ -447,7 +477,8 @@ active_hold_actions: [..] Hold_Action;
 // We have to get store the matched mapping because one action may be matched
 // by multiple key combos, so when a key is released, in order to deactivate the action
 // we need to check whether it actually belongs to the combo that activated the action!
-Hold_Action :: struct {
+Hold_Action :: struct
+{
     action_type: Type;
     matched_mapping: Key_Mapping;
 }
